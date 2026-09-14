@@ -1,0 +1,459 @@
+{
+  "document_types": {
+    "delivery_note": {
+      "identifiers": [
+        "delivery_note_number",
+        "purchase_order_reference",
+        "job_reference",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_date",
+        "supplier",
+        "bill_to_customer",
+        "billing_address",
+        "attention_contact",
+        "line_items",
+        "subtotal",
+        "tax_rate",
+        "tax_amount",
+        "total_amount",
+        "currency",
+        "page_count"
+      ]
+    },
+    "invoice": {
+      "identifiers": [
+        "invoice_number",
+        "job_reference",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_date",
+        "supplier",
+        "bill_to_customer",
+        "billing_address",
+        "attention_contact",
+        "line_items",
+        "subtotal",
+        "tax_rate",
+        "tax_amount",
+        "total_amount",
+        "currency",
+        "page_count"
+      ]
+    },
+    "quotation": {
+      "identifiers": [
+        "quotation_number",
+        "job_reference",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_date",
+        "supplier",
+        "bill_to_customer",
+        "billing_address",
+        "attention_contact",
+        "line_items",
+        "subtotal",
+        "tax_rate",
+        "tax_amount",
+        "total_amount",
+        "currency",
+        "page_count"
+      ]
+    },
+    "technical_datasheet": {
+      "identifiers": [
+        "document_number",
+        "product_code",
+        "model",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_title",
+        "issue_date",
+        "issuing_organisation",
+        "confidentiality_notice",
+        "power_supply",
+        "full_load_current",
+        "noise_level",
+        "pneumatic_supply",
+        "weight",
+        "footprint_reference",
+        "communications_protocols",
+        "spare_io_points",
+        "maintenance_intervals",
+        "materials",
+        "safety_category",
+        "rated_throughput",
+        "operating_temperature_range",
+        "enclosure_rating"
+      ]
+    },
+    "technical_specification": {
+      "identifiers": [
+        "document_number",
+        "product_code",
+        "model",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_title",
+        "issue_date",
+        "issuing_organisation",
+        "confidentiality_notice",
+        "power_supply",
+        "full_load_current",
+        "noise_level",
+        "pneumatic_supply",
+        "weight",
+        "footprint_reference",
+        "communications_protocols",
+        "spare_io_points",
+        "maintenance_intervals",
+        "materials",
+        "safety_category",
+        "rated_throughput",
+        "operating_temperature_range",
+        "enclosure_rating"
+      ]
+    },
+    "operation_maintenance_manual": {
+      "identifiers": [
+        "manual_title",
+        "equipment_identifier",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "document_issue_date",
+        "manufacturer_or_issuer",
+        "equipment_model",
+        "sections",
+        "operating_instructions",
+        "safety_instructions",
+        "installation_instructions",
+        "commissioning_procedures",
+        "maintenance_instructions",
+        "troubleshooting_instructions",
+        "spare_parts_information",
+        "referenced_documents",
+        "page_count"
+      ]
+    },
+    "correspondence_email": {
+      "identifiers": [
+        "message_identifier",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "sender",
+        "recipient",
+        "sent_date",
+        "subject_or_project_reference",
+        "body",
+        "referenced_quotation",
+        "scheduled_site_visit",
+        "requested_site_access",
+        "organisation_signature"
+      ]
+    },
+    "maintenance_agreement": {
+      "identifiers": [
+        "agreement_title",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "parties",
+        "related_job_or_project",
+        "termination_notice_period",
+        "governing_law",
+        "payment_terms",
+        "confidentiality_terms",
+        "site_access_obligations",
+        "service_response_time",
+        "warranty_terms",
+        "signature_blocks"
+      ]
+    },
+    "framework_supply_contract": {
+      "identifiers": [
+        "agreement_title",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "parties",
+        "related_job_or_project",
+        "termination_notice_period",
+        "governing_law",
+        "payment_terms",
+        "site_access_obligations",
+        "service_response_time",
+        "supplier_obligations",
+        "warranty_terms",
+        "schedule_references",
+        "signature_blocks"
+      ]
+    },
+    "quality_non_conformance_report": {
+      "identifiers": [
+        "report_title",
+        "file_name",
+        "file_path"
+      ],
+      "suggested_fields": [
+        "report_date",
+        "author",
+        "reporting_organisation",
+        "reporting_period",
+        "findings",
+        "safety_incident_summary",
+        "site_access_summary",
+        "energy_consumption_finding",
+        "jobs_completed",
+        "on_time_delivery_percentage",
+        "callouts",
+        "revenue",
+        "revenue_currency"
+      ]
+    }
+  },
+  "entity_types": {
+    "organisation": {
+      "suggested_fields": [
+        "name",
+        "organisation_role",
+        "address",
+        "telephone",
+        "vat_number"
+      ]
+    },
+    "person": {
+      "suggested_fields": [
+        "name",
+        "role",
+        "email_address",
+        "organisation"
+      ]
+    },
+    "job_or_project": {
+      "suggested_fields": [
+        "job_reference",
+        "name",
+        "customer",
+        "status",
+        "related_documents"
+      ]
+    },
+    "address": {
+      "suggested_fields": [
+        "street",
+        "locality",
+        "postal_code",
+        "country",
+        "address_type"
+      ]
+    },
+    "product_or_equipment": {
+      "suggested_fields": [
+        "name",
+        "product_code",
+        "model",
+        "equipment_type",
+        "manufacturer",
+        "description"
+      ]
+    },
+    "document": {
+      "suggested_fields": [
+        "document_type",
+        "title",
+        "document_number",
+        "file_name",
+        "file_path",
+        "date",
+        "issuer",
+        "confidentiality"
+      ]
+    },
+    "line_item": {
+      "suggested_fields": [
+        "description",
+        "quantity",
+        "unit",
+        "unit_price",
+        "line_total",
+        "currency",
+        "referenced_product_or_service"
+      ]
+    },
+    "service": {
+      "suggested_fields": [
+        "name",
+        "description",
+        "service_type",
+        "response_time",
+        "maintenance_interval"
+      ]
+    },
+    "technical_parameter": {
+      "suggested_fields": [
+        "parameter_name",
+        "value",
+        "unit",
+        "condition",
+        "source_document"
+      ]
+    },
+    "contractual_term": {
+      "suggested_fields": [
+        "term_type",
+        "term_text",
+        "notice_period",
+        "duration",
+        "response_time",
+        "payment_terms",
+        "governing_law",
+        "applicable_party"
+      ]
+    },
+    "finding_or_metric": {
+      "suggested_fields": [
+        "finding_text",
+        "metric_name",
+        "value",
+        "unit",
+        "reporting_period",
+        "significance"
+      ]
+    },
+    "site_visit": {
+      "suggested_fields": [
+        "scheduled_date",
+        "purpose",
+        "access_requirements",
+        "attending_organisation",
+        "attending_person"
+      ]
+    }
+  },
+  "relationship_types": {
+    "ISSUED_BY": {
+      "source": "document",
+      "target": "organisation",
+      "description": "The organisation that issued or authored the document."
+    },
+    "ADDRESSED_TO": {
+      "source": "document",
+      "target": "organisation",
+      "description": "The organisation to which a document is addressed."
+    },
+    "HAS_CONTACT": {
+      "source": "organisation",
+      "target": "person",
+      "description": "Associates an organisation with a named contact."
+    },
+    "HAS_ADDRESS": {
+      "source": "organisation",
+      "target": "address",
+      "description": "Associates an organisation with an address."
+    },
+    "RELATES_TO_PROJECT": {
+      "source": "document",
+      "target": "job_or_project",
+      "description": "Links a document to the job or project named in it."
+    },
+    "REFERENCES_DOCUMENT": {
+      "source": "document",
+      "target": "document",
+      "description": "Indicates that one document refers to another document, such as an email referencing a quotation."
+    },
+    "CONTAINS_LINE_ITEM": {
+      "source": "document",
+      "target": "line_item",
+      "description": "Associates an invoice, quotation, or delivery note with a line item."
+    },
+    "REFERENCES_PRODUCT": {
+      "source": "line_item",
+      "target": "product_or_equipment",
+      "description": "Links a commercial line item to a named product or equipment item."
+    },
+    "DESCRIBES_PRODUCT": {
+      "source": "document",
+      "target": "product_or_equipment",
+      "description": "Links a manual, datasheet, or technical specification to the equipment or product it describes."
+    },
+    "HAS_TECHNICAL_PARAMETER": {
+      "source": "product_or_equipment",
+      "target": "technical_parameter",
+      "description": "Associates equipment or a product with a stated technical parameter."
+    },
+    "HAS_SECTION": {
+      "source": "document",
+      "target": "document",
+      "description": "Represents a section or chapter contained within a manual or similar structured document."
+    },
+    "PARTY_TO_CONTRACT": {
+      "source": "organisation",
+      "target": "document",
+      "description": "Associates an organisation with a contract or agreement as a stated party."
+    },
+    "CONTAINS_CONTRACTUAL_TERM": {
+      "source": "document",
+      "target": "contractual_term",
+      "description": "Associates a contract with one of its contractual terms."
+    },
+    "APPLIES_TO_PARTY": {
+      "source": "contractual_term",
+      "target": "organisation",
+      "description": "Identifies the organisation to which a contractual term applies, where stated."
+    },
+    "AUTHORED_BY": {
+      "source": "document",
+      "target": "person",
+      "description": "Links a report, email, or other document to its named author or sender."
+    },
+    "SCHEDULES_SITE_VISIT": {
+      "source": "document",
+      "target": "site_visit",
+      "description": "Indicates that correspondence schedules or confirms a site visit."
+    },
+    "ATTENDED_BY_ORGANISATION": {
+      "source": "site_visit",
+      "target": "organisation",
+      "description": "Identifies the organisation providing the attending technician or service."
+    },
+    "REPORTS_FINDING": {
+      "source": "document",
+      "target": "finding_or_metric",
+      "description": "Associates a quality report with a finding or reported metric."
+    },
+    "HAS_RELATED_JOB": {
+      "source": "organisation",
+      "target": "job_or_project",
+      "description": "Associates a customer or supplier organisation with a named job or project."
+    }
+  },
+  "ambiguities": [
+    "The samples use customer names in paths, bill-to fields, contract parties, and email salutations that may be abbreviated or inconsistent; these should not be automatically merged.",
+    "Technical document product codes and model values may appear crossed or inconsistent, such as GB-40 paired with model CS-110, VIS-200, or PS-4000. Preserve both values with their source context.",
+    "The manual contains repeated instructions and apparent extraction artefacts such as question-mark bullets; repetition should not automatically be treated as separate instructions.",
+    "Some emails say 'on the date above', but the supplied text does not contain an explicit date. Preserve the phrase and leave the scheduled date unresolved.",
+    "Currency symbols differ across commercial documents, including pound and dollar symbols, and some symbols appear corrupted. Preserve the extracted symbol and avoid inferring currency solely from the supplier address.",
+    "Delivery notes contain prices and totals, but the samples do not establish whether these are billing amounts or delivery valuation amounts.",
+    "The term 'BILL TO' appears on delivery notes as well as invoices and quotations; it should not by itself determine the legal customer or contracting party.",
+    "The quality report contains a title indicating non-conformance, but the listed findings do not clearly identify a specific non-conformance event or corrective action.",
+    "File names may be truncated or contain inconsistent punctuation and should be retained separately from the document's internal identifiers.",
+    "The samples include references to related drawings, schematics, schedules, and certificates that are not present in the supplied documents."
+  ]
+}

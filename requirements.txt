@@ -1,0 +1,9 @@
+streamlit
+pandas
+pymupdf
+rapidfuzz
+networkx
+pyvis
+openai
+python-dotenv
+PyYAML

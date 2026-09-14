@@ -5,8 +5,18 @@ import sqlite3
 
 from SRC.database import DATABASE_PATH
 
+import os
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 DATASET_ROOT = Path(
-    r"C:\Users\Administrator\Downloads\takehome"
+    os.getenv(
+        "DATASET_ROOT",
+        "data/raw",
+    )
 )
 
 IGNORED_FILENAMES = {

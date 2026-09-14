@@ -1,0 +1,105 @@
+document_types:
+  invoice:
+    identifiers:
+    - invoice no
+    - invoice number
+    - invoice
+    primary_number:
+      regex: Invoice\s*(?:Number|No\.?|#)\s*[:\-]?\s*(INV[- ]?\d+)
+      prefix: INV
+    fallback_regex: \bINV[- ]?(\d+)\b
+  quotation:
+    identifiers:
+    - quotation no
+    - quote no
+    - quotation
+    primary_number:
+      regex: (?:Quotation|Quote)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(QUO[- ]?\d+)
+      prefix: QUO
+    fallback_regex: \bQUO[- ]?(\d+)\b
+  purchase_order:
+    identifiers:
+    - purchase order
+    - po number
+    - po no
+    primary_number:
+      regex: (?:Purchase\s*Order|PO)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(PO[- ]?\d+)
+      prefix: PO
+    fallback_regex: \bPO[- ]?(\d+)\b
+  delivery_note:
+    identifiers:
+      - delivery_note_number
+      - purchase_order_reference
+      - job_reference
+      - file_name
+      - file_path
+
+    primary_number:
+      regex: (?:Delivery\s*Note|DN)\s*(?:Number|No\.?|#)\s*[:-]?\s*(DN[- ]?\d+)
+      prefix: DN
+
+    fallback_regex: \bDN[- ]?(\d+)\b
+
+    suggested_fields:
+      - document_date
+      - supplier
+      - bill_to_customer
+      - billing_address
+      - attention_contact
+      - line_items
+      - subtotal
+      - tax_rate
+      - tax_amount
+      - total_amount
+      - currency
+      - page_count
+
+  drawing:
+    identifiers:
+    - drawing
+    - dwg number
+    primary_number:
+      regex: (?:Drawing|DWG)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(DWG[- ]?\d+)
+      prefix: DWG
+    fallback_regex: \bDWG[- ]?(\d+)\b
+entity_types:
+  organisation:
+    suggested_fields:
+    - name
+    - organisation_role
+    - address
+    - telephone
+    - vat_number
+  person:
+    suggested_fields:
+    - name
+    - role
+    - email_address
+    - organisation
+  job_or_project:
+    suggested_fields:
+    - job_reference
+    - name
+    - customer
+    - status
+    - related_documents
+  document:
+    suggested_fields:
+    - document_type
+    - title
+    - document_number
+    - file_name
+    - file_path
+    - date
+    - issuer
+    - confidentiality
+relationship_types:
+  HAS_RELATED_JOB:
+    source: organisation
+    target: job_or_project
+    description: Associates a customer or supplier organisation with a named job or
+      project.
+  AUTHORED_BY:
+    source: document
+    target: person
+    description: Links a report, email, or other document to its named author or sender.

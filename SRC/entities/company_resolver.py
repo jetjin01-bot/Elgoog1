@@ -51,7 +51,7 @@ def resolve_companies():
             source_file_id
         FROM entity_mentions
         WHERE entity_type = 'company'
-          AND extraction_method = 'folder_context'
+          AND resolution_status = 'unresolved'
         ORDER BY id
     """)
     rows = cursor.fetchall()

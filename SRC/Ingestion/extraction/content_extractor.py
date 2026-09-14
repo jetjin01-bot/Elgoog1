@@ -130,24 +130,3 @@ def extract_content(file_path: Path) -> dict:
         "text": "",
     }
 
-
-if __name__ == "__main__":
-
-    eml_path = Path(
-        r"C:\Users\Administrator\Downloads\takehome\Customers\Falcon Aerospace Components Ltd\JOB-2026-0026 Control Panel Replacement\Correspondence\20231213_c5fdece7.eml"
-    )
-
-    result = extract_content(eml_path)
-
-    print("=" * 70)
-    print("EML TEST")
-    print("=" * 70)
-
-    print("From:", result["sender"])
-    print("To:", result["recipient"])
-    print("CC:", result["cc"])
-    print("Date:", result["date"])
-    print("Subject:", result["subject"])
-
-    print("\nBODY:")
-    print(result["text"][:3000])

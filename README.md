@@ -1,9 +1,16 @@
-Elgoog
-The project ingests heterogeneous business files, resolves canonical entities and logical documents, preserves provenance and conflicts, and exposes the resulting knowledge model through an interactive Streamlit interface.
+# Elgoog
 
-1.	Project Overview
+Elgoog ingests heterogeneous business files, resolves canonical entities and logical documents, preserves provenance and conflicts, and exposes the resulting knowledge model through an interactive Streamlit interface.
 
-Companies rarely store operational knowledge in one clean system where the same customer, project, person, transaction or document may appear across:
+The system combines a deterministic core with governed AI-assisted schema discovery and generalized extraction. AI is used to propose structure and extract observations, while canonical resolution remains evidence-based and conservative.
+
+---
+
+## 1. Project Overview
+
+Companies rarely store operational knowledge in one clean system.
+
+The same customer, project, person, transaction or document may appear across:
 
 - PDFs
 - emails
@@ -17,8 +24,11 @@ Companies rarely store operational knowledge in one clean system where the same 
 - correspondence
 - drawings
 - specifications
+- reports
+- technical documents
 
-The challenge is therefore not simply to extract text but is to determine:
+The challenge is therefore not simply to extract text, but to determine:
+
 - what real entities exist
 - when two observations refer to the same entity
 - how documents relate to projects and companies
@@ -26,45 +36,73 @@ The challenge is therefore not simply to extract text but is to determine:
 - what to do when evidence disagrees
 - when a system should refuse to resolve something automatically
 
-This project builds a structured, queryable and explainable business knowledge model over fragmented source files.
+Elgoog builds a structured, queryable and explainable business knowledge model over fragmented source files.
 
-2. Problem Framing
+---
+
+## 2. Problem Framing
 
 The system is designed around several principles:
+
 > Folder structure is evidence, not truth.
+
 > Content can override filenames and folder placement when stronger evidence exists.
+
 > Canonical entities use stable internal IDs.
+
 > Observed aliases are preserved rather than overwritten.
+
+> Observations remain separate from canonical entities.
+
+> Evidence from different extraction methods is preserved independently.
+
 > Ambiguous matches are surfaced for review rather than aggressively merged.
+
 > Relationships retain confidence and provenance.
+
 > Conflicting evidence is preserved instead of silently selecting a winner.
 
-The objective is not to create a searchable pile of extracted text. The objective is to build a model precise enough that downstream software can reason over companies, projects, people, documents and relationships.
+> A wrong merge is more dangerous than an unresolved record.
 
-3. What I Built
+The objective is not to create a searchable collection of extracted text.
+
+The objective is to build a model precise enough that downstream software can reason over companies, projects, people, documents and relationships without hiding uncertainty.
+
+---
+
+## 3. What I Built
 
 The pipeline currently supports:
-	Source ingestion
+
+### Source Ingestion
+
 - recursive file discovery
 - file metadata capture
 - SHA-256 hashing
 - folder context capture
 - source file persistence
+- ingestion status tracking
 
-	Document resolution
-- filename based document identity detection
+### Document Resolution
+
+- filename-based document identity detection
 - content-based document identity verification
 - logical document creation
-- source file to logical document linking
+- source-file-to-logical-document linking
 - filename/content conflict detection
+- support for multiple physical files representing one logical document
 
-	Entity extraction
+### Entity Extraction
+
 - company mentions
 - project mentions
-- person mentions from email headers
+- person mentions from email metadata
 - aliases from labelled PDF fields
+- schema-constrained AI entity extraction
+- provenance-aware observations
 
-	Canonical entity resolution
+### Canonical Entity Resolution
+
 - canonical companies
 - canonical projects
 - canonical people
@@ -72,34 +110,69 @@ The pipeline currently supports:
 - alias preservation
 - confidence tracking
 - candidate match review
+- deterministic enrichment using supporting evidence
+- unresolved states when evidence is insufficient
 
-	Relationship construction
+### Schema Discovery and Governance
+
+- sample-based schema discovery for unfamiliar files
+- proposed document types
+- proposed entity types
+- suggested attributes
+- proposed relationship types
+- ambiguity detection
+- human review before schema activation
+- separation between proposed and active schemas
+
+### Generalized Processing
+
+- schema-constrained AI extraction
+- provenance-aware entity mentions
+- deterministic project enrichment from folder context
+- deterministic person enrichment from email evidence
+- generalized logical document creation
+- reuse of existing canonical resolvers
+- unresolved observations preserved when evidence is insufficient
+
+### Relationship Construction
+
 - Company → Project
 - Document → Project
 - Document → Company
 - Document → Person
-- Document → Document references
+- Document → Document
 
-	Provenance and data quality
+### Provenance and Data Quality
+
 - extraction issues
 - unresolved references
 - filename/content conflicts
 - evidence records
 - source file traceability
-- human review queue
+- extraction method tracking
+- human review queues
 
-	User interface
+### User Interface
+
 - Overview
 - Entity Explorer
 - Graph Explorer
 - Resolution Review
+- Schema Review
+- Generalized Processing
 - Data Quality
-- Relationship Explorer
+- Relationships
 - Ask the Knowledge Model
 
-4. Architecture
+---
+
+## 4. Architecture
 
 The system uses a deterministic-first architecture.
+
+A governed generalized layer extends the deterministic baseline when unfamiliar document structures or entity types are encountered.
+
+```text
 Source Files
     ↓
 File Scanner
@@ -110,7 +183,21 @@ Document Identification
     ↓
 Logical Document Resolution
     ↓
-Entity Mention Extraction
+Deterministic Entity Mention Extraction
+    ↓
+Canonical Entity Resolution
+    ↓
+Optional Generalized Processing
+    ↓
+Schema Discovery
+    ↓
+Human Schema Review
+    ↓
+Approved Active Schema
+    ↓
+AI Entity / Document Extraction
+    ↓
+Deterministic Evidence Enrichment
     ↓
 Canonical Entity Resolution
     ↓
@@ -120,364 +207,712 @@ Evidence / Conflict Persistence
     ↓
 SQLite Knowledge Model
     ↓
-Streamlit Exploration Interface
-The SQLite database is treated as a derived, rebuildable knowledge model over the source corpus. The original files remain as the evidence layer.
-________________________________________
-5. Technology Stack
-Core
-•	Python
-•	SQLite
-•	Pandas
-Document processing
-•	PyMuPDF
-Entity resolution
-•	deterministic normalization
-•	alias matching
-•	RapidFuzz-assisted candidate scoring
-Graph exploration
-•	NetworkX
-•	PyVis
-Interface
-•	Streamlit
-The current implementation intentionally does not depend on an LLM for core resolution logic.
-This keeps entity resolution reproducible and makes each decision easier to explain.
-________________________________________
-6. Data Model
+Streamlit Interface
+```
+
+The SQLite database is treated as a derived, rebuildable knowledge model over the source corpus.
+
+The original files remain the underlying evidence layer.
+
+---
+
+## 5. Technology Stack
+
+### Core
+
+- Python
+- SQLite
+- Pandas
+- PyYAML
+
+### Document Processing
+
+- PyMuPDF
+
+### Entity Resolution
+
+- deterministic normalization
+- alias matching
+- RapidFuzz-assisted candidate scoring
+- identifier-based canonical resolution
+
+### Generalized Extraction
+
+- OpenAI API
+- schema discovery
+- schema-constrained entity extraction
+- ambiguity identification
+- python-dotenv for local API configuration
+
+### Graph Exploration
+
+- NetworkX
+- PyVis
+
+### Interface
+
+- Streamlit
+
+The canonical resolution layer does not depend on an LLM making identity decisions.
+
+AI is used for schema discovery and semantic extraction, while deterministic evidence and existing resolution policies control whether an observation is linked to a canonical entity.
+
+This keeps identity resolution reproducible, reviewable and easier to explain.
+
+---
+
+## 6. Data Model
+
 The core business entities are:
-Company
+
+### Company
+
 Represents a canonical organisation.
-Examples:
-•	Falcon Aerospace Components Ltd
-•	Acme Corporation
-Project
+
+### Project
+
 Represents a canonical job or project.
-Example:
-•	JOB-2026-0026
-Person
-Represents a canonical individual, generally identified through email evidence.
-Document
+
+### Person
+
+Represents a canonical individual, generally resolved using reliable identifiers such as email evidence.
+
+### Document
+
 Represents a logical business document rather than a physical file.
+
 Supported document categories include:
-•	Invoice
-•	Quotation
-•	Purchase Order
-•	Delivery Note
-•	Drawing
-•	Specification
-•	Correspondence
-•	Contract
-•	Other
-Source File
+
+- Invoice
+- Quotation
+- Purchase Order
+- Delivery Note
+- Drawing
+- Specification
+- Correspondence
+- Contract
+- Internal Report
+- Technical Datasheet
+- Other approved document types
+
+### Source File
+
 A source file is the physical artefact found in the original corpus.
+
 A logical document may be supported by one or more source files.
-This distinction is important because duplicated, revised or renamed files do not necessarily represent distinct business documents.
-________________________________________
-7. Source File vs Logical Document
-The system deliberately separates physical files from logical documents.
-For example:
-INV-8189.pdf
-INV-8189 FINAL.pdf
-INV-8189 revised(1).pdf
-may all represent the same logical invoice.
-The source files remain independently traceable, while the knowledge model can reason over one logical document.
-This avoids treating every filename as a separate business object.
-________________________________________
-8. Document Resolution Strategy
+
+This distinction prevents duplicated, revised or renamed physical files from automatically being treated as separate business documents.
+
+---
+
+## 7. Source File vs Logical Document
+
+The system deliberately separates physical source files from logical business documents.
+
+Source files remain independently traceable, while the knowledge model can resolve multiple representations into one logical document where the evidence supports that conclusion.
+
+This distinction separates physical storage from business identity.
+
+The generalized processing layer can also create logical documents for document types that were not supported by the original deterministic parser.
+
+All logical documents remain linked back to their originating source files.
+
+---
+
+## 8. Document Resolution Strategy
+
 Document identity is determined using multiple signals.
-Filename evidence
-Structured filename prefixes such as:
-INV-
-QUO-
-PO-
-DN-
-DWG-
-provide an initial document identity signal.
-Content evidence
-Labelled fields extracted from the document body are treated as stronger evidence when available.
-Examples:
-Invoice No:
-Quotation No:
-PO Ref:
-Delivery Note:
-Conflict handling
-If the filename suggests:
-QUO-5238
-but the extracted document content identifies:
-QUO-5239
-the system does not silently select one and discard the other.
-It resolves the logical document using the stronger content evidence and records a:
-filename_content_mismatch
-conflict for review and provenance.
-________________________________________
-9. Entity Resolution Strategy
+
+### Filename Evidence
+
+Structured filenames can provide an initial document identity signal.
+
+### Content Evidence
+
+Labelled fields and identifiers found inside document content are treated as stronger evidence when available.
+
+### Conflict Handling
+
+When filename evidence and document content disagree, the system does not silently discard either observation.
+
+The stronger evidence can be used for logical document resolution while the disagreement is preserved as a conflict for review and provenance.
+
+---
+
+## 9. Entity Resolution Strategy
+
 Entity resolution is intentionally conservative.
+
 A wrong merge is more dangerous than an unresolved alias because an incorrect merge can silently corrupt downstream relationships.
-The resolution process therefore uses:
-1.	normalized exact matches
-2.	known alias matches
-3.	candidate scoring
-4.	folder evidence where available
-5.	score margin against the runner-up candidate
-6.	human review when evidence is insufficient
-Example:
-Observed Alias:
-Falcon Aerospace
 
-Candidate:
-Falcon Aerospace Components Ltd
+The resolution process can use:
 
-Match Score:
-89.8
+1. strong identifiers
+2. normalized exact matches
+3. known aliases
+4. candidate scoring
+5. folder evidence
+6. email evidence
+7. score margin against alternative candidates
+8. human review when evidence is insufficient
 
-Runner-up Score:
-45.5
+An observation is not automatically treated as a canonical entity.
 
-Score Margin:
-44.3
+It must either contain a sufficiently reliable identifier or acquire supporting evidence through deterministic enrichment.
 
-Folder Support:
-No
-Despite a strong name score and large margin, the system can still classify the match as:
-Manual Review Required
-when independent evidence is insufficient.
-This is intentional.
-________________________________________
-10. Human-in-the-Loop Resolution
-The Resolution Review screen exposes ambiguous matches rather than hiding them.
-For each candidate, the interface displays:
-•	observed alias
-•	candidate company
-•	match score
-•	runner-up score
-•	score margin
-•	folder support
-•	decision reason
-•	occurrence count
-•	supporting source files
-•	observed mentions
-•	known candidate aliases
-This allows a reviewer to inspect why a match was proposed and what evidence supports it.
-The system therefore treats uncertainty as an explicit state rather than forcing every record into a canonical entity.
-________________________________________
-11. Relationship Model
-The current relationship vocabulary includes:
-HAS_PROJECT
-RELATES_TO_PROJECT
-RELATES_TO_COMPANY
-BILL_TO
-CUSTOMER
-SUPPLIER
-SHIP_TO
-ISSUED_BY
-SENDER
-RECIPIENT
-CC
-REFERENCES
-Examples:
-Company
-	HAS_PROJECT
-	Project
-Document
-	RELATES_TO_PROJECT
-	Project
-Invoice
-	BILL_TO
-	Company
-Email
-	SENDER
-	Person
-	RECIPIENT		
-	Person
-Delivery Note
-	REFERENCES
-	Purchase Order
-Relationships are stored separately from entities and retain confidence and status information.
-________________________________________
-12. Provenance
+Different extraction methods are preserved independently.
+
+Two observations with the same text value are not automatically collapsed if they came from different evidence sources.
+
+They may later resolve to the same canonical entity while retaining their individual provenance.
+
+---
+
+## 10. Generalized Processing
+
+The deterministic pipeline is strongest when the structure of the source documents is already understood.
+
+The generalized processing layer extends the system to unfamiliar files without allowing AI to directly modify the canonical knowledge model.
+
+The process is:
+
+```text
+Approved Schema
+    ↓
+AI Extraction
+    ↓
+Observed Entity Mentions
+    ↓
+Deterministic Evidence Enrichment
+    ↓
+Canonical Resolution
+    ↓
+Resolved / Unresolved State
+```
+
+AI extraction produces observations rather than canonical entities.
+
+Deterministic evidence can then enrich those observations with reliable identifiers or contextual support.
+
+Existing canonical resolvers determine whether the observation can be safely linked to the knowledge model.
+
+If the available evidence is insufficient, the observation remains unresolved.
+
+This separation is intentional:
+
+- AI identifies semantic content
+- deterministic evidence enriches observations
+- canonical resolvers decide identity
+- uncertainty remains visible
+
+---
+
+## 11. Schema Discovery and Review
+
+The system can inspect a sample of unfamiliar source files and propose extensions to the active schema.
+
+A proposal may include:
+
+- new document types
+- new entity types
+- suggested attributes
+- new relationship types
+- detected ambiguities
+
+AI-generated proposals are stored separately from the active schema.
+
+They do not automatically change the production model.
+
+The Schema Review interface allows a reviewer to inspect proposals and decide whether to:
+
+- approve them
+- reject them
+- treat a proposed concept as an attribute instead of an entity
+- approve or reject proposed relationship types
+
+Only explicitly approved changes are applied to the active schema.
+
+This makes schema evolution a governed process rather than allowing an AI model to silently redefine the knowledge model.
+
+---
+
+## 12. Human-in-the-Loop Resolution
+
+The Resolution Review interface exposes ambiguous matches rather than hiding them.
+
+Review information can include:
+
+- observed alias
+- candidate entity
+- match score
+- alternative candidate score
+- score margin
+- supporting evidence
+- decision reason
+- occurrence count
+- source files
+- known aliases
+
+The system treats uncertainty as an explicit state rather than forcing every observation into a canonical entity.
+
+Human review is also used during schema evolution.
+
+Entity resolution review determines whether an observation should map to a canonical entity.
+
+Schema review determines whether a document type, entity type or relationship should exist in the model at all.
+
+Keeping these review stages separate prevents structural schema decisions from being confused with individual resolution decisions.
+
+---
+
+## 13. Relationship Model
+
+The relationship vocabulary includes:
+
+- HAS_PROJECT
+- RELATES_TO_PROJECT
+- RELATES_TO_COMPANY
+- BILL_TO
+- CUSTOMER
+- SUPPLIER
+- SHIP_TO
+- ISSUED_BY
+- SENDER
+- RECIPIENT
+- CC
+- REFERENCES
+
+Relationships are stored separately from entities.
+
+They retain relationship type, confidence and status information.
+
+This allows the system to model business structure without embedding every connection directly inside entity records.
+
+---
+
+## 14. Provenance
+
 The system is designed so that resolved information can be traced back to its supporting evidence.
-The interface exposes:
-•	evidence records
-•	source files
-•	entity mentions
-•	relationships
-•	conflicts
-This allows a user to answer:
-Why does this entity exist?
-Which file supports this alias?
-Why was this company linked to this project?
-Which document established this relationship?
-Provenance is treated as part of the model rather than as an afterthought.
-________________________________________
-13. Conflict Handling
-Conflicting evidence is preserved.
-Current conflict categories include:
-Extraction issues
-Files that cannot be read successfully or contain no extractable text.
-Unresolved document references
-A document contains an explicit reference such as a PO or quotation number, but the referenced logical document cannot be found.
-Filename / content conflicts
-The filename identity disagrees with the document identity found inside the document content.
-The system records these issues in a persistent conflict register.
-This makes data-quality problems queryable and reproducible.
-________________________________________
-14. Data Quality
-The current corpus produces recorded issues across several categories.
-Example:
-Extraction Issues
-Unresolved References
-Filename / Content Conflicts
-These are persisted rather than only printed during execution.
-The data-quality layer is also designed to be idempotent, so repeated pipeline runs do not create duplicate conflict records.
-________________________________________
-15. Graph Explorer
-The Graph Explorer provides several focused views.
-Business Structure
-Displays:
-Company
-→ Projects
-→ Representative Documents
-Documents
-Shows relationships directly involving logical documents.
-Communications
-Displays:
-Company / Project
-→ Correspondence
-→ People
-Direct Relationships
-Provides a one-hop inspection view around the selected entity.
-The graph intentionally limits node counts to avoid producing an unreadable global hairball.
-________________________________________
-16. Ask the Knowledge Model
-The application includes a deterministic query interface over the resolved knowledge model.
-It can search for:
-•	companies
-•	projects
-•	people
-•	documents
-Example queries:
-JOB-2026-0026
-PO-3167
-Falcon Aerospace
-Marcus Chandra
-The result page can expose:
-•	entity summary
-•	related projects
-•	related documents
-•	people involved
-•	references
-•	relationships
-•	conflicts
-•	provenance
-This feature queries the structured SQLite model directly.
-It does not use an LLM and does not re-read all source files at query time.
-________________________________________
-17. Example Investigation
-A useful demonstration path is:
-Falcon Aerospace
-    ↓
-JOB-2026-0026
-    ↓
-Quotation / Purchase Order / Delivery Note / Invoice
-    ↓
-Document References
-    ↓
-Email Correspondence
-    ↓
-People
-    ↓
-Resolution Evidence
-    ↓
-Conflicts
-This demonstrates that the system is resolving a connected business model rather than independently extracting files.
-________________________________________
-18. Pipeline Order
-The rebuild process currently follows this sequence:
-1. Initialise / reset the derived database
-2. Scan source files
-3. Audit extraction issues
-4. Build initial logical documents
-5. Verify document identity
-6. Resolve PDF logical documents
-7. Extract entity mentions
-8. Resolve companies and projects
-9. Extract and resolve people
-10. Extract PDF company aliases
-11. Resolve company candidates
-12. Build relationships
-13. Resolve document references
-14. Persist unresolved references and conflicts
-The database can therefore be regenerated from the source corpus.
-________________________________________
-19. Key Design Decisions
-Deterministic first
-The core resolution pipeline does not require an LLM.
-This improves:
-•	reproducibility
-•	explainability
-•	debugging
-•	testability
-Do not trust folder structure blindly
-Folders contribute evidence but do not determine truth.
-Separate observations from canonical entities
-Observed names remain available as mentions and aliases.
-Preserve ambiguity
-Low-confidence or insufficiently supported candidates remain unresolved.
-Preserve conflicts
-Conflicting evidence is stored rather than overwritten.
-Separate source files from logical documents
-Physical storage and business identity are different concepts.
-Rich model first
-The knowledge model retains relationships, provenance and confidence even when downstream systems may eventually need simpler flattened views.
-________________________________________
-20. Limitations
-The current implementation is intentionally scoped.
-OCR
-Image-only and scanned PDFs without a text layer are currently surfaced as extraction issues.
-A production system would add an OCR or document-understanding stage.
-Entity resolution
-Candidate matching is currently strongest for company aliases.
-More general entity-resolution policies would be needed for people, products, sites and other entity classes.
-Relationship validation
-A detected reference is treated as observed evidence.
-The system does not yet fully determine whether the referenced documents form a valid transaction chain.
-For example, contradictory dates or business semantics may require an additional validation layer.
-Manual review actions
-The current interface explains review candidates but does not yet provide a full accept / reject / merge / split workflow.
-Schema discovery
-The current business entity and relationship vocabulary is predefined.
-A production implementation would likely require governed schema extension.
-Incremental updates
-The current demo favors reproducible full rebuilds.
-A production system would require efficient incremental ingestion and re-resolution.
-________________________________________
-21. Future Improvements
-Potential next steps include:
-OCR and multimodal extraction
-Add OCR / document vision support for scanned PDFs, handwriting and images.
-Review write-back
-Allow reviewers to:
-•	approve a candidate
-•	reject a candidate
-•	manually select another entity
-•	merge entities
-•	split entities
-Stronger relationship validation
-Use dates, amounts and reference chains to distinguish:
-observed reference
-from:
-validated transaction relationship
-Candidate blocking
-Reduce the search space before approximate matching for larger datasets.
-Incremental graph recomputation
-Recompute only affected entities and relationships when new files arrive.
-Natural-language query layer
-Add an LLM as an optional interpretation layer over the already-resolved structured model.
-The LLM would not be responsible for entity resolution or uncontrolled database writes.
-________________________________________
-22. Final Note
-The main goal of this project is not maximum extraction coverage.
-It is to demonstrate how fragmented enterprise data can be transformed into a structured, evidence-backed and reviewable knowledge model without hiding uncertainty.
-The key design principle is simple:
-When the evidence is strong, resolve deterministically.
-When the evidence conflicts, preserve the conflict.
 
+The model retains:
+
+- source files
+- entity mentions
+- aliases
+- extraction methods
+- logical documents
+- relationships
+- conflicts
+- confidence values
+
+This allows the system to explain:
+
+- why an entity exists
+- which source produced an alias
+- why an observation was resolved
+- which document supports a relationship
+- which extraction method produced an observation
+
+Provenance is treated as part of the knowledge model rather than as an afterthought.
+
+Generalized processing also distinguishes between deterministic observations and AI-derived observations.
+
+Observations are not collapsed simply because their normalized values match.
+
+Different evidence sources may independently support the same canonical entity.
+
+---
+
+## 15. Conflict Handling
+
+Conflicting evidence is preserved.
+
+Current conflict categories include:
+
+### Extraction Issues
+
+Files that cannot be read successfully or contain no extractable text.
+
+### Unresolved Document References
+
+Documents may contain explicit references to other documents that cannot be resolved into the logical document model.
+
+### Filename / Content Conflicts
+
+The identity suggested by the filename may disagree with the identity found inside the document content.
+
+These issues are stored in a persistent conflict register.
+
+This makes data-quality problems queryable and reproducible.
+
+---
+
+## 16. Data Quality
+
+The system records processing issues rather than only printing them during execution.
+
+Tracked categories include:
+
+- extraction issues
+- unresolved references
+- filename/content conflicts
+- unresolved entity observations
+
+Corrupt files, empty files and files without extractable text are treated as data-quality conditions rather than as reasons for the entire pipeline to fail.
+
+This allows the system to complete processing while keeping failures visible for later review.
+
+---
+
+## 17. Graph Explorer
+
+The Graph Explorer provides focused views over the resolved knowledge model.
+
+Available views include:
+
+### Business Structure
+
+Shows the connection between companies, projects and representative documents.
+
+### Documents
+
+Shows relationships involving logical documents.
+
+### Communications
+
+Shows correspondence and the people connected to it.
+
+### Direct Relationships
+
+Provides a focused one-hop inspection around a selected entity.
+
+The graph intentionally limits node counts to avoid producing an unreadable global network.
+
+---
+
+## 18. Ask the Knowledge Model
+
+The application includes a deterministic query interface over the resolved SQLite knowledge model.
+
+It can search across:
+
+- companies
+- projects
+- people
+- documents
+
+The interface can expose:
+
+- entity summaries
+- related projects
+- related documents
+- people involved
+- references
+- relationships
+- conflicts
+- provenance
+
+The query interface operates over the structured model directly.
+
+It does not re-read the source corpus for each query and does not rely on an LLM to perform entity resolution at query time.
+
+---
+
+## 19. Generalized Processing Interface
+
+The Generalized Processing screen provides a focused view over the generalized extraction layer.
+
+It displays:
+
+- extracted mentions
+- matched records
+- unresolved records
+- results by entity type
+- extracted identifiers
+- source files
+- newly created logical documents
+
+The page is designed to make the processing path understandable without exposing unnecessary implementation detail.
+
+The processing stages are:
+
+```text
+Extract
+    ↓
+Enrich
+    ↓
+Match
+    ↓
+Store
+```
+
+Records without sufficient evidence remain unresolved and available for review.
+
+---
+
+## 20. Pipeline Order
+
+The rebuild process currently follows this sequence:
+
+1. Initialise or reset the derived database
+2. Scan source files
+3. Build initial logical documents
+4. Verify document identities
+5. Extract folder-based company and project mentions
+6. Resolve canonical companies and projects
+7. Extract people from email metadata
+8. Resolve canonical people
+9. Extract and resolve PDF company aliases
+10. Optionally run generalized processing
+11. Build relationships
+12. Run final data-quality checks
+
+The generalized processing stage follows:
+
+```text
+Selected Source Files
+    ↓
+Schema-Constrained AI Extraction
+    ↓
+Observed Mentions
+    ↓
+Deterministic Evidence Enrichment
+    ↓
+Canonical Resolution
+    ↓
+Logical Document Linking
+```
+
+Generalized processing is optional.
+
+The deterministic baseline can rebuild the knowledge model without making OpenAI API calls.
+
+This keeps the baseline independently reproducible and avoids unnecessary model usage.
+
+---
+
+## 21. Key Design Decisions
+
+### Deterministic First
+
+Canonical identity decisions remain deterministic wherever reliable identifiers or structured evidence are available.
+
+AI extends extraction coverage but does not replace the canonical resolution layer.
+
+This improves:
+
+- reproducibility
+- explainability
+- debugging
+- testability
+
+### Do Not Trust Folder Structure Blindly
+
+Folders contribute evidence but do not determine truth.
+
+### Separate Observations from Canonical Entities
+
+Observed values remain available as mentions and aliases.
+
+Canonical entities are created or linked only when resolution rules support that decision.
+
+### Separate AI Observations from Canonical Entities
+
+AI extraction creates observations rather than canonical business objects.
+
+This prevents the extraction model from making uncontrolled identity decisions.
+
+### Preserve Ambiguity
+
+Low-confidence or insufficiently supported observations remain unresolved.
+
+### Preserve Conflicts
+
+Conflicting evidence is stored rather than overwritten.
+
+### Separate Source Files from Logical Documents
+
+Physical storage and business identity are different concepts.
+
+### Govern Schema Changes
+
+AI-generated schema proposals remain isolated until reviewed and approved.
+
+The active schema changes through explicit governance rather than automatic model output.
+
+### Rich Model First
+
+The knowledge model retains relationships, provenance, confidence and unresolved states even when downstream applications may eventually require simpler views.
+
+---
+
+## 22. Running the Project
+
+Create and activate a Python environment.
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+If generalized AI processing is required, create a local `.env` file containing:
+
+```text
+OPENAI_API_KEY=your_key_here
+```
+
+The `.env` file should not be committed to Git.
+
+### Run the Pipeline
+
+```bash
+python pipeline.py
+```
+
+By default, the deterministic pipeline can rebuild the derived knowledge model without generalized AI processing.
+
+Generalized source files can be supplied through the `generalized_source_ids` argument when required.
+
+### Start the Streamlit Interface
+
+```bash
+streamlit run app.py
+```
+
+---
+
+## 23. Limitations
+
+The current implementation is intentionally scoped.
+
+### OCR
+
+Image-only and scanned PDFs without a usable text layer are currently surfaced as extraction issues.
+
+A production system would add OCR or multimodal document extraction.
+
+### Entity Resolution
+
+Resolution policies are currently strongest for companies, projects and people with reliable identifiers.
+
+Additional entity classes would require dedicated resolution policies.
+
+### Relationship Validation
+
+A detected reference is treated as observed evidence.
+
+The system does not yet fully determine whether all referenced documents form a semantically valid business transaction chain.
+
+Additional validation using dates, amounts and domain rules would strengthen this layer.
+
+### Manual Review Workflow
+
+The interface supports schema approval decisions and exposes entity-resolution candidates.
+
+A production implementation would require a complete operational review workflow with persistent reviewer decisions and audit history.
+
+### Schema Evolution
+
+The system supports AI-assisted schema proposals and human approval.
+
+Schema merging remains relatively lightweight.
+
+A production implementation would require:
+
+- formal schema versioning
+- migration management
+- backward compatibility rules
+- stronger validation before activation
+
+### Generalized AI Processing
+
+The generalized layer currently runs on explicitly selected files rather than automatically across the entire corpus.
+
+A production implementation would require:
+
+- extraction caching
+- change detection
+- batching
+- retry handling
+- API cost controls
+- incremental processing
+
+### Incremental Updates
+
+The current demo favours reproducible full rebuilds.
+
+A production system would require efficient incremental ingestion and re-resolution.
+
+---
+
+## 24. Future Improvements
+
+Potential next steps include:
+
+### OCR and Multimodal Extraction
+
+Add OCR or document vision support for scanned PDFs, handwriting and image-based files.
+
+### Review Write-Back
+
+Support persistent reviewer decisions including:
+
+- approval
+- rejection
+- reassignment
+- merge
+- split
+- audit history
+
+### Stronger Relationship Validation
+
+Use dates, amounts and domain rules to distinguish observed references from validated business relationships.
+
+### Candidate Blocking
+
+Reduce the search space before approximate entity matching for larger datasets.
+
+### Incremental Graph Recalculation
+
+Recompute only affected entities and relationships when new evidence arrives.
+
+### AI Extraction Caching
+
+Avoid repeated model calls for unchanged source files using file fingerprints and processing status.
+
+### Schema Versioning
+
+Track active schema versions and migrations so structural changes remain reproducible.
+
+### Regression Testing
+
+Maintain fixed test cases and expected resolution outcomes to identify behavioural changes after updates to parsing or resolution logic.
+
+### Generalized Relationship Extraction
+
+Extend schema-constrained extraction beyond entities and documents to relationship candidates while retaining deterministic validation before persistence.
+
+### Natural-Language Query Layer
+
+An LLM could be added as an optional interpretation layer over the already-resolved structured model.
+
+It would not be responsible for uncontrolled entity resolution or database writes.
+
+---
+
+## 25. Final Note
+
+The main goal of Elgoog is not maximum extraction coverage.
+
+It is to demonstrate how fragmented enterprise data can be transformed into a structured, evidence-backed and reviewable knowledge model without hiding uncertainty.
+
+The operating principle is:
+
+> Extract broadly.
+
+> Resolve conservatively.
+
+> Preserve the evidence.
+
+When the structure is unfamiliar, AI can help discover and extract it, but the evidence still determines what becomes part of the canonical model.

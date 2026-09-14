@@ -1,119 +1,241 @@
 import sqlite3
-from collections import Counter
 
 from SRC.database import DATABASE_PATH
 
 
-def normalize_email(email: str) -> str:
+def normalize_email(email):
+    if not email:
+        return None
+
     return email.strip().lower()
 
 
-def resolve_people():
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
+def normalize_name(name):
+    if not name:
+        return None
 
-    cursor.execute("""
+    return " ".join(
+        name.strip().split()
+    )
+
+
+def resolve_people():
+
+    connection = sqlite3.connect(
+        DATABASE_PATH
+    )
+
+    cursor = connection.cursor()
+
+    # ========================================================
+    # 1. LOAD UNRESOLVED PERSON MENTIONS WITH IDENTIFIERS
+    # ========================================================
+
+    cursor.execute(
+        """
         SELECT
             id,
             observed_value,
-            identifier_value
+            identifier_value,
+            confidence,
+            source_file_id
         FROM entity_mentions
         WHERE entity_type = 'person'
+          AND resolution_status = 'unresolved'
           AND identifier_value IS NOT NULL
           AND TRIM(identifier_value) != ''
         ORDER BY id
-    """)
+        """
+    )
 
-    rows = cursor.fetchall()
+    mentions = cursor.fetchall()
 
-    groups = {}
+    processed_count = 0
+    linked_existing_count = 0
+    created_count = 0
+    alias_created_count = 0
 
-    for mention_id, observed_value, email in rows:
-        normalized_email = normalize_email(email)
+    # ========================================================
+    # 2. RESOLVE EACH PERSON
+    # ========================================================
 
-        groups.setdefault(
-            normalized_email,
-            {
-                "names": [],
-                "mentions": [],
-            }
+    for (
+        mention_id,
+        observed_name,
+        identifier_value,
+        confidence,
+        source_file_id,
+    ) in mentions:
+
+        processed_count += 1
+
+        email = normalize_email(
+            identifier_value
         )
 
-        groups[normalized_email]["names"].append(observed_value)
-        groups[normalized_email]["mentions"].append(mention_id)
+        canonical_name = normalize_name(
+            observed_name
+        )
 
-    person_count = 0
-    alias_count = 0
+        if not email:
+            continue
 
-    for email, data in groups.items():
+        # ----------------------------------------------------
+        # First check whether this person already exists
+        # ----------------------------------------------------
 
-        name_counts = Counter(data["names"])
-        canonical_name = name_counts.most_common(1)[0][0]
-
-        cursor.execute("""
-            INSERT INTO people (
-                canonical_name,
+        cursor.execute(
+            """
+            SELECT
+                id,
+                canonical_name
+            FROM people
+            WHERE LOWER(TRIM(email)) = ?
+            LIMIT 1
+            """,
+            (
                 email,
-                resolution_status,
-                confidence
-            )
-            VALUES (?, ?, ?, ?)
-        """, (
-            canonical_name,
-            email,
-            "resolved_deterministically",
-            0.99,
-        ))
+            ),
+        )
 
-        person_id = cursor.lastrowid
-        person_count += 1
+        existing_person = cursor.fetchone()
 
-        for mention_id in data["mentions"]:
-            cursor.execute("""
+        if existing_person:
+
+            person_id = existing_person[0]
+
+            cursor.execute(
+                """
                 UPDATE entity_mentions
                 SET
-                    resolution_status = 'resolved',
-                    resolved_entity_id = ?
+                    resolved_entity_id = ?,
+                    resolution_status = 'resolved'
                 WHERE id = ?
-            """, (
-                person_id,
-                mention_id,
-            ))
+                """,
+                (
+                    person_id,
+                    mention_id,
+                ),
+            )
 
-        distinct_names = set(data["names"])
+            linked_existing_count += 1
 
-        for alias in distinct_names:
-            cursor.execute("""
-                INSERT INTO aliases (
-                    entity_type,
-                    entity_id,
-                    alias,
-                    normalized_alias,
-                    confidence,
-                    status
+        else:
+
+            # ------------------------------------------------
+            # No canonical person exists yet
+            # ------------------------------------------------
+
+            cursor.execute(
+                """
+                INSERT INTO people (
+                    canonical_name,
+                    email,
+                    resolution_status,
+                    confidence
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                "person",
-                person_id,
-                alias,
-                alias.strip().lower(),
-                0.99,
-                "confirmed",
-            ))
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    canonical_name or email,
+                    email,
+                    "resolved",
+                    confidence,
+                ),
+            )
 
-            alias_count += 1
+            person_id = cursor.lastrowid
 
-    conn.commit()
-    conn.close()
+            cursor.execute(
+                """
+                UPDATE entity_mentions
+                SET
+                    resolved_entity_id = ?,
+                    resolution_status = 'resolved'
+                WHERE id = ?
+                """,
+                (
+                    person_id,
+                    mention_id,
+                ),
+            )
 
-    print("=" * 70)
-    print("PERSON RESOLUTION")
-    print("=" * 70)
+            created_count += 1
 
-    print(f"Person mentions processed: {len(rows)}")
-    print(f"Canonical people created:  {person_count}")
-    print(f"Person aliases stored:      {alias_count}")
+        # ----------------------------------------------------
+        # Add alias only if we have a meaningful observed name
+        # and the same alias does not already exist
+        # ----------------------------------------------------
+
+        if canonical_name:
+
+            normalized_alias = (
+                canonical_name
+                .strip()
+                .lower()
+            )
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM aliases
+                WHERE entity_type = 'person'
+                  AND entity_id = ?
+                  AND normalized_alias = ?
+                LIMIT 1
+                """,
+                (
+                    person_id,
+                    normalized_alias,
+                ),
+            )
+
+            existing_alias = cursor.fetchone()
+
+            if not existing_alias:
+
+                cursor.execute(
+                    """
+                    INSERT INTO aliases (
+                        entity_type,
+                        entity_id,
+                        alias,
+                        normalized_alias,
+                        source_file_id,
+                        confidence,
+                        status
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "person",
+                        person_id,
+                        canonical_name,
+                        normalized_alias,
+                        source_file_id,
+                        confidence,
+                        "observed",
+                    ),
+                )
+
+                alias_created_count += 1
+
+    connection.commit()
+    connection.close()
+
+    print("\nPerson resolution complete.")
+    print(
+        f"Unresolved person mentions processed: {processed_count}"
+    )
+    print(
+        f"Linked to existing people:            {linked_existing_count}"
+    )
+    print(
+        f"New canonical people created:         {created_count}"
+    )
+    print(
+        f"New aliases created:                  {alias_created_count}"
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,29 @@
+{
+  "document_types": {
+    "delivery_note": {
+      "decision": "approve"
+    }
+  },
+  "entity_types": {
+    "organisation": {
+      "decision": "approve"
+    },
+    "person": {
+      "decision": "approve"
+    },
+    "job_or_project": {
+      "decision": "approve"
+    },
+    "document": {
+      "decision": "approve"
+    }
+  },
+  "relationship_types": {
+    "HAS_RELATED_JOB": {
+      "decision": "approve"
+    },
+    "AUTHORED_BY": {
+      "decision": "approve"
+    }
+  }
+}

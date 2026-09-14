@@ -1,15 +1,251 @@
 import sqlite3
 import tempfile
+import json
+import yaml
 from pathlib import Path
 
 import networkx as nx
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
 from pyvis.network import Network
 
 from SRC.database import DATABASE_PATH
+from SRC.schema_comparator import compare_schemas
+from SRC.schema_validator import validate_schema
 
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+ACTIVE_SCHEMA_PATH = (
+    PROJECT_ROOT
+    / "config"
+    / "schema.yaml"
+)
+
+PROPOSED_SCHEMA_PATH = (
+    PROJECT_ROOT
+    / "config"
+    / "proposed_schema.json"
+)
+
+
+def load_active_schema():
+    with open(
+        ACTIVE_SCHEMA_PATH,
+        "r",
+        encoding="utf-8",
+    ) as file:
+        return yaml.safe_load(file) or {}
+
+
+def load_proposed_schema():
+    with open(
+        PROPOSED_SCHEMA_PATH,
+        "r",
+        encoding="utf-8",
+    ) as file:
+        return json.load(file)
+
+REVIEW_DECISIONS_PATH = (
+    PROJECT_ROOT
+    / "config"
+    / "schema_review_decisions.json"
+)
+
+def load_review_decisions():
+    if not REVIEW_DECISIONS_PATH.exists():
+        return {
+            "document_types": {},
+            "entity_types": {},
+            "relationship_types": {},
+        }
+
+    with open(
+        REVIEW_DECISIONS_PATH,
+        "r",
+        encoding="utf-8",
+    ) as file:
+        return json.load(file)
+
+
+def save_review_decision(
+    section: str,
+    item_name: str,
+    decision: str,
+):
+    decisions = load_review_decisions()
+
+    decisions.setdefault(
+        section,
+        {},
+    )
+
+    decisions[section][item_name] = {
+        "decision": decision
+    }
+
+    with open(
+        REVIEW_DECISIONS_PATH,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            decisions,
+            file,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+from copy import deepcopy
+
+def deep_merge_dict(base: dict, updates: dict) -> dict:
+    result = deepcopy(base)
+
+    for key, value in updates.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = deep_merge_dict(
+                result[key],
+                value,
+            )
+        else:
+            result[key] = deepcopy(value)
+
+    return result
+
+def apply_approved_changes():
+    active_schema = load_active_schema()
+    proposed_schema = load_proposed_schema()
+    decisions = load_review_decisions()
+
+    active_schema.setdefault(
+        "document_types",
+        {},
+    )
+
+    active_schema.setdefault(
+        "entity_types",
+        {},
+    )
+
+    active_schema.setdefault(
+        "relationship_types",
+        {},
+    )
+
+    for item_name, decision_info in (
+        decisions
+        .get(
+            "document_types",
+            {},
+        )
+        .items()
+    ):
+        if (
+            decision_info.get("decision")
+            == "approve"
+        ):
+            proposed_item = (
+                proposed_schema
+                .get(
+                    "document_types",
+                    {},
+                )
+                .get(
+                    item_name
+                )
+            )
+
+            if proposed_item is not None:
+                existing_item = (
+                    active_schema[
+                        "document_types"
+                    ].get(
+                        item_name,
+                        {},
+                    )
+                )
+
+                active_schema[
+                    "document_types"
+                ][item_name] = deep_merge_dict(
+                    existing_item,
+                    proposed_item,
+                )
+
+    for item_name, decision_info in (
+        decisions
+        .get(
+            "entity_types",
+            {},
+        )
+        .items()
+    ):
+        decision = decision_info.get(
+            "decision"
+        )
+
+        if decision == "approve":
+            proposed_item = (
+                proposed_schema
+                .get(
+                    "entity_types",
+                    {},
+                )
+                .get(
+                    item_name
+                )
+            )
+
+            if proposed_item is not None:
+                active_schema[
+                    "entity_types"
+                ][item_name] = proposed_item
+
+    for item_name, decision_info in (
+        decisions
+        .get(
+            "relationship_types",
+            {},
+        )
+        .items()
+    ):
+        if (
+            decision_info.get("decision")
+            == "approve"
+        ):
+            proposed_item = (
+                proposed_schema
+                .get(
+                    "relationship_types",
+                    {},
+                )
+                .get(
+                    item_name
+                )
+            )
+
+            if proposed_item is not None:
+                active_schema[
+                    "relationship_types"
+                ][item_name] = proposed_item
+
+    with open(
+        ACTIVE_SCHEMA_PATH,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        yaml.safe_dump(
+            active_schema,
+            file,
+            sort_keys=False,
+            allow_unicode=True,
+        )
 
 # ============================================================
 # PAGE CONFIG
@@ -930,6 +1166,8 @@ page = st.sidebar.radio(
         "Resolution Review",
         "Data Quality",
         "Relationships",
+        "Schema Review",
+        "Generalized Processing",
         "Ask the Knowledge Model",
     ],
 )
@@ -5143,6 +5381,1095 @@ elif page == "Data Quality":
         use_container_width=True,
         hide_index=True,
     )
+
+
+# ============================================================
+# Schema Review
+# ============================================================
+
+elif page == "Schema Review":
+
+    st.title(
+        "Schema Review"
+    )
+
+    st.caption(
+        "Review AI-discovered schema changes before they are "
+        "introduced into the active knowledge model."
+    )
+
+    try:
+        active_schema = load_active_schema()
+        proposed_schema = load_proposed_schema()
+
+        comparison = compare_schemas()
+        validation = validate_schema()
+
+    except FileNotFoundError as exc:
+
+        st.error(
+            f"Required schema file not found: {exc}"
+        )
+
+        st.stop()
+
+    document_diff = comparison[
+        "document_types"
+    ]
+
+    entity_diff = comparison[
+        "entity_types"
+    ]
+
+    relationship_diff = comparison[
+        "relationship_types"
+    ]
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric(
+        "New Document Types",
+        len(document_diff["added"]),
+    )
+
+    col2.metric(
+        "New Entity Types",
+        len(entity_diff["added"]),
+    )
+
+    col3.metric(
+        "New Relationships",
+        len(
+            relationship_diff["added"]
+        ),
+    )
+
+    col4.metric(
+        "Ambiguities",
+        len(
+            comparison.get(
+                "ambiguities",
+                [],
+            )
+        ),
+    )
+
+    st.divider()
+
+    st.subheader(
+        "Document Types"
+    )
+
+    tabs = st.tabs(
+        [
+            "New",
+            "Changed",
+            "Missing from Sample",
+        ]
+    )
+
+    with tabs[0]:
+
+        added_documents = (
+            document_diff["added"]
+        )
+
+        if not added_documents:
+
+            st.success(
+                "No new document types discovered."
+            )
+
+        else:
+
+            for document_type in added_documents:
+
+                config = (
+                    proposed_schema
+                    .get(
+                        "document_types",
+                        {},
+                    )
+                    .get(
+                        document_type,
+                        {},
+                    )
+                )
+
+                with st.expander(
+                    f"+ {document_type}"
+                ):
+
+                    st.json(
+                        config
+                    )
+
+                    decisions = load_review_decisions()
+
+                    existing_decision = (
+                        decisions
+                        .get(
+                            "document_types",
+                            {},
+                        )
+                        .get(
+                            document_type,
+                            {},
+                        )
+                        .get(
+                            "decision"
+                        )
+                    )
+
+                    st.markdown(
+                        "**Review Decision**"
+                    )
+
+                    col_approve, col_reject = st.columns(2)
+
+                    if col_approve.button(
+                            "Approve",
+                            key=f"approve_document_{document_type}",
+                    ):
+                        save_review_decision(
+                            "document_types",
+                            document_type,
+                            "approve",
+                        )
+
+                        st.rerun()
+
+                    if col_reject.button(
+                            "Reject",
+                            key=f"reject_document_{document_type}",
+                    ):
+                        save_review_decision(
+                            "document_types",
+                            document_type,
+                            "reject",
+                        )
+
+                        st.rerun()
+
+                    if existing_decision:
+                        st.info(
+                            f"Current decision: "
+                            f"{existing_decision}"
+                        )
+
+                    st.warning(
+                        "New type discovered. "
+                        "Human review recommended before approval."
+                    )
+
+    with tabs[1]:
+
+        changed_documents = (
+            document_diff["changed"]
+        )
+
+        if not changed_documents:
+
+            st.success(
+                "No changed document definitions."
+            )
+
+        else:
+
+            for document_type in changed_documents:
+
+                with st.expander(
+                    f"~ {document_type}"
+                ):
+
+                    col_current, col_proposed = (
+                        st.columns(2)
+                    )
+
+                    with col_current:
+
+                        st.markdown(
+                            "**Current Schema**"
+                        )
+
+                        st.json(
+                            active_schema
+                            .get(
+                                "document_types",
+                                {},
+                            )
+                            .get(
+                                document_type,
+                                {},
+                            )
+                        )
+
+                    with col_proposed:
+
+                        st.markdown(
+                            "**AI Proposal**"
+                        )
+
+                        st.json(
+                            proposed_schema
+                            .get(
+                                "document_types",
+                                {},
+                            )
+                            .get(
+                                document_type,
+                                {},
+                            )
+                        )
+                    decisions = load_review_decisions()
+
+                    existing_decision = (
+                        decisions
+                        .get(
+                            "document_types",
+                            {},
+                        )
+                        .get(
+                            document_type,
+                            {},
+                        )
+                        .get(
+                            "decision"
+                        )
+                    )
+
+                    st.markdown(
+                        "**Review Decision**"
+                    )
+
+                    col_approve, col_reject = st.columns(2)
+
+                    if col_approve.button(
+                            "Approve Proposed Change",
+                            key=f"approve_changed_document_{document_type}",
+                    ):
+                        save_review_decision(
+                            "document_types",
+                            document_type,
+                            "approve",
+                        )
+
+                        st.rerun()
+
+                    if col_reject.button(
+                            "Keep Current Definition",
+                            key=f"reject_changed_document_{document_type}",
+                    ):
+                        save_review_decision(
+                            "document_types",
+                            document_type,
+                            "reject",
+                        )
+
+                        st.rerun()
+
+                    if existing_decision:
+                        st.info(
+                            f"Current decision: {existing_decision}"
+                        )
+
+    with tabs[2]:
+
+        missing_documents = (
+            document_diff[
+                "missing_from_proposal"
+            ]
+        )
+
+        if not missing_documents:
+
+            st.success(
+                "All active document types appeared "
+                "in the sampled proposal."
+            )
+
+        else:
+
+            st.info(
+                "Missing from the proposal does not mean "
+                "the type should be removed. "
+                "The sampled files may simply not contain it."
+            )
+
+            for document_type in missing_documents:
+
+                st.write(
+                    f"• {document_type}"
+                )
+
+    st.divider()
+
+    st.subheader(
+        "Entity Candidates"
+    )
+
+    entity_validation = validation[
+        "entity_validation"
+    ]
+
+    for (
+        entity_name,
+        result,
+    ) in entity_validation.items():
+
+        if result[
+            "review_required"
+        ]:
+            status = "⚠ Review"
+        else:
+            status = "✓ Likely Entity"
+
+        with st.expander(
+                f"{entity_name} — {status}"
+        ):
+
+            classification = result.get(
+                "classification",
+                "needs_review",
+            )
+
+            reason = result.get(
+                "reason",
+                "",
+            )
+
+            entity_config = (
+                proposed_schema
+                .get(
+                    "entity_types",
+                    {},
+                )
+                .get(
+                    entity_name,
+                    {},
+                )
+            )
+
+            suggested_fields = entity_config.get(
+                "suggested_fields",
+                [],
+            )
+
+            classification_labels = {
+                "likely_entity": "Canonical Entity",
+                "likely_attribute": "Likely Attribute",
+                "context_dependent": "Context Dependent",
+                "possible_entity": "Possible Entity",
+                "needs_review": "Needs Review",
+            }
+
+            recommended_role = classification_labels.get(
+                classification,
+                classification,
+            )
+
+            st.markdown(
+                "**Recommended Role**"
+            )
+
+            st.write(
+                recommended_role
+            )
+
+            st.markdown(
+                "**Why?**"
+            )
+
+            st.write(
+                reason
+            )
+
+            st.markdown(
+                "**Suggested Fields**"
+            )
+
+            if suggested_fields:
+
+                for field in suggested_fields:
+                    st.write(
+                        f"• {field}"
+                    )
+
+            else:
+
+                st.write(
+                    "No fields suggested."
+                )
+
+            st.info(
+                "Decide whether this concept should exist as a standalone "
+                "entity in the knowledge model, be rejected, or be treated "
+                "as an attribute of another entity."
+            )
+
+            with st.expander(
+                    "Technical Details"
+            ):
+                st.json(
+                    entity_config
+                )
+
+            decisions = load_review_decisions()
+
+            existing_decision = (
+                decisions
+                .get(
+                    "entity_types",
+                    {},
+                )
+                .get(
+                    entity_name,
+                    {},
+                )
+                .get(
+                    "decision"
+                )
+            )
+
+            st.markdown(
+                "**Review Decision**"
+            )
+
+            col_approve, col_reject, col_attribute = (
+                st.columns(3)
+            )
+
+            if col_approve.button(
+                    "Accept as Entity",
+                    key=f"approve_entity_{entity_name}",
+            ):
+                save_review_decision(
+                    "entity_types",
+                    entity_name,
+                    "approve",
+                )
+
+                st.rerun()
+
+            if col_reject.button(
+                    "Reject Concept",
+                    key=f"reject_entity_{entity_name}",
+            ):
+                save_review_decision(
+                    "entity_types",
+                    entity_name,
+                    "reject",
+                )
+
+                st.rerun()
+
+            if col_attribute.button(
+                    "Convert to Attribute",
+                    key=f"attribute_entity_{entity_name}",
+            ):
+                save_review_decision(
+                    "entity_types",
+                    entity_name,
+                    "convert_to_attribute",
+                )
+
+                st.rerun()
+
+            if existing_decision:
+                st.info(
+                    f"Current decision: "
+                    f"{existing_decision}"
+                )
+
+        st.divider()
+
+    st.subheader(
+        "Relationship Validation"
+    )
+
+    relationship_validation = (
+        validation[
+            "relationship_validation"
+        ]
+    )
+
+    for (
+            relationship_name,
+            result,
+    ) in relationship_validation.items():
+
+        with st.expander(
+                relationship_name
+        ):
+
+            if result[
+                "valid_structure"
+            ]:
+
+                st.success(
+                    "Valid structure"
+                )
+
+            else:
+
+                st.warning(
+                    "Review required"
+                )
+
+                for issue in result[
+                    "issues"
+                ]:
+                    st.write(
+                        f"• {issue}"
+                    )
+
+            proposed_relationship = (
+                proposed_schema
+                .get(
+                    "relationship_types",
+                    {},
+                )
+                .get(
+                    relationship_name,
+                    {},
+                )
+            )
+
+            source_type = proposed_relationship.get(
+                "source",
+                "unknown",
+            )
+
+            target_type = proposed_relationship.get(
+                "target",
+                "unknown",
+            )
+
+            description = proposed_relationship.get(
+                "description",
+                "No description provided.",
+            )
+
+            st.markdown(
+                "**Business Meaning**"
+            )
+
+            st.write(
+                description
+            )
+
+            st.markdown(
+                "**Relationship Direction**"
+            )
+
+            st.code(
+                f"{source_type} → {target_type}"
+            )
+
+            st.markdown(
+                "**What are you approving?**"
+            )
+
+            st.info(
+                "Accept this relationship if this type of connection "
+                "should be allowed in the business knowledge model."
+            )
+
+            with st.expander(
+                    "Technical Details"
+            ):
+                st.json(
+                    proposed_relationship
+                )
+
+            decisions = load_review_decisions()
+
+            existing_decision = (
+                decisions
+                .get(
+                    "relationship_types",
+                    {},
+                )
+                .get(
+                    relationship_name,
+                    {},
+                )
+                .get(
+                    "decision"
+                )
+            )
+
+            st.markdown(
+                "**Review Decision**"
+            )
+
+            decisions = load_review_decisions()
+
+            existing_decision = (
+                decisions
+                .get(
+                    "relationship_types",
+                    {},
+                )
+                .get(
+                    relationship_name,
+                    {},
+                )
+                .get(
+                    "decision"
+                )
+            )
+
+            col_approve, col_reject = (
+                st.columns(2)
+            )
+
+            if col_approve.button(
+                    "Accept Relationship",
+                    key=f"approve_relationship_{relationship_name}",
+            ):
+                save_review_decision(
+                    "relationship_types",
+                    relationship_name,
+                    "approve",
+                )
+
+                st.rerun()
+
+            if col_reject.button(
+                    "Reject Relationship",
+                    key=f"reject_relationship_{relationship_name}",
+            ):
+                save_review_decision(
+                    "relationship_types",
+                    relationship_name,
+                    "reject",
+                )
+
+                st.rerun()
+
+            if existing_decision:
+                st.info(
+                    f"Current decision: {existing_decision}"
+                )
+    st.divider()
+
+    st.subheader(
+        "Detected Ambiguities"
+    )
+
+    ambiguities = validation.get(
+        "ambiguities",
+        [],
+    )
+
+    if not ambiguities:
+
+        st.success(
+            "No ambiguities detected."
+        )
+
+    else:
+
+        for index, ambiguity in enumerate(
+            ambiguities,
+            start=1,
+        ):
+
+            st.warning(
+                f"{index}. {ambiguity}"
+            )
+
+    st.divider()
+
+    st.info(
+        "The proposed schema has not modified the active schema. "
+        "AI-generated changes remain isolated until explicitly reviewed."
+    )
+
+    st.subheader(
+        "Apply Reviewed Changes"
+    )
+
+    st.warning(
+        "Only items explicitly marked as approved will be merged "
+        "into the active schema."
+    )
+
+    if st.button(
+            "Apply Approved Changes",
+            type="primary",
+    ):
+        apply_approved_changes()
+
+        st.success(
+            "Approved schema changes have been applied."
+        )
+
+        st.rerun()
+
+# ============================================================
+# Generalized Processing
+# ============================================================
+
+elif page == "Generalized Processing":
+
+    st.title("Generalized Processing")
+
+    st.caption(
+        "Review extracted entities and documents, see which records were matched, "
+        "and identify items that still need review."
+    )
+
+    conn = sqlite3.connect(DATABASE_PATH)
+
+    # ========================================================
+    # SUMMARY METRICS
+    # ========================================================
+
+    ai_mentions = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM entity_mentions
+        WHERE extraction_method = 'ai_schema_extraction'
+        """
+    ).fetchone()[0]
+
+    ai_resolved = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM entity_mentions
+        WHERE extraction_method = 'ai_schema_extraction'
+          AND resolution_status = 'resolved'
+        """
+    ).fetchone()[0]
+
+    ai_unresolved = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM entity_mentions
+        WHERE extraction_method = 'ai_schema_extraction'
+          AND resolution_status = 'unresolved'
+        """
+    ).fetchone()[0]
+
+    ai_documents = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM document_sources
+        WHERE source_role = 'ai_discovered_representation'
+        """
+    ).fetchone()[0]
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric(
+        "Extracted Mentions",
+        ai_mentions,
+        help="Entity mentions extracted from the processed files.",
+    )
+
+    col2.metric(
+        "Matched",
+        ai_resolved,
+        help="Mentions linked to existing entities or logical documents.",
+    )
+
+    col3.metric(
+        "Needs Review",
+        ai_unresolved,
+        help="Mentions that could not be matched with enough supporting evidence.",
+    )
+
+    col4.metric(
+        "New Documents",
+        ai_documents,
+        help="Documents added to the logical document model during generalized processing.",
+    )
+
+    st.divider()
+
+    # ========================================================
+    # PROCESSING SUMMARY
+    # ========================================================
+
+    st.subheader("Processing Summary")
+
+    summary_col1, summary_col2 = st.columns(2)
+
+    with summary_col1:
+
+        st.markdown("#### Matched")
+
+        st.write(
+            f"**{ai_resolved}** extracted mentions were matched to existing "
+            "entities or logical documents."
+        )
+
+        st.success(
+            "Matches are only made when there is enough supporting evidence."
+        )
+
+    with summary_col2:
+
+        st.markdown("#### Needs Review")
+
+        st.write(
+            f"**{ai_unresolved}** mentions could not be matched with enough confidence."
+        )
+
+        st.info(
+            "These records are left unresolved for manual review."
+        )
+
+    st.divider()
+
+    # ========================================================
+    # MATCH RESULTS BY ENTITY TYPE
+    # ========================================================
+
+    st.subheader("Match Results by Entity Type")
+
+    resolution_rows = conn.execute(
+        """
+        SELECT
+            entity_type,
+            resolution_status,
+            COUNT(*)
+        FROM entity_mentions
+        WHERE extraction_method = 'ai_schema_extraction'
+        GROUP BY
+            entity_type,
+            resolution_status
+        ORDER BY
+            entity_type,
+            resolution_status
+        """
+    ).fetchall()
+
+    resolution_df = pd.DataFrame(
+        resolution_rows,
+        columns=[
+            "Entity Type",
+            "Status",
+            "Count",
+        ],
+    )
+
+    if not resolution_df.empty:
+
+        resolution_pivot = resolution_df.pivot_table(
+            index="Entity Type",
+            columns="Status",
+            values="Count",
+            fill_value=0,
+        ).reset_index()
+
+        if "resolved" not in resolution_pivot.columns:
+            resolution_pivot["resolved"] = 0
+
+        if "unresolved" not in resolution_pivot.columns:
+            resolution_pivot["unresolved"] = 0
+
+        resolution_pivot = resolution_pivot.rename(
+            columns={
+                "resolved": "Matched",
+                "unresolved": "Needs Review",
+            }
+        )
+
+        resolution_pivot["Total"] = (
+            resolution_pivot["Matched"]
+            + resolution_pivot["Needs Review"]
+        )
+
+        resolution_pivot["Match Rate"] = (
+            (
+                resolution_pivot["Matched"]
+                / resolution_pivot["Total"]
+            )
+            * 100
+        ).round(1).astype(str) + "%"
+
+        st.dataframe(
+            resolution_pivot[
+                [
+                    "Entity Type",
+                    "Matched",
+                    "Needs Review",
+                    "Match Rate",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+
+    # ========================================================
+    # EXTRACTED RECORDS
+    # ========================================================
+
+    st.subheader("Extracted Records")
+
+    st.caption(
+        "Recently extracted entities, their identifiers and current match status."
+    )
+
+    entity_rows = conn.execute(
+        """
+        SELECT
+            em.entity_type,
+            em.observed_value,
+            em.identifier_value,
+            em.confidence,
+            em.resolution_status,
+            sf.filename
+        FROM entity_mentions em
+        JOIN source_files sf
+          ON sf.id = em.source_file_id
+        WHERE em.extraction_method = 'ai_schema_extraction'
+        ORDER BY em.id DESC
+        LIMIT 20
+        """
+    ).fetchall()
+
+    entity_df = pd.DataFrame(
+        entity_rows,
+        columns=[
+            "Type",
+            "Extracted Value",
+            "Identifier",
+            "Confidence",
+            "Status",
+            "Source File",
+        ],
+    )
+
+    if not entity_df.empty:
+
+        entity_df["Confidence"] = (
+            entity_df["Confidence"]
+            .fillna(0)
+            .apply(
+                lambda x: f"{x:.0%}"
+            )
+        )
+
+        entity_df["Status"] = (
+            entity_df["Status"]
+            .replace(
+                {
+                    "resolved": "Matched",
+                    "unresolved": "Needs Review",
+                }
+            )
+        )
+
+        st.dataframe(
+            entity_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+
+    # ========================================================
+    # NEW DOCUMENTS
+    # ========================================================
+
+    st.subheader("New Documents")
+
+    st.caption(
+        "Documents identified from files that were not handled by the original parser."
+    )
+
+    document_rows = conn.execute(
+        """
+        SELECT
+            d.document_type,
+            d.document_number,
+            d.title,
+            d.document_date,
+            d.extraction_confidence,
+            sf.filename
+        FROM documents d
+        JOIN document_sources ds
+          ON ds.document_id = d.id
+        JOIN source_files sf
+          ON sf.id = ds.source_file_id
+        WHERE ds.source_role = 'ai_discovered_representation'
+        ORDER BY d.id DESC
+        """
+    ).fetchall()
+
+    document_df = pd.DataFrame(
+        document_rows,
+        columns=[
+            "Document Type",
+            "Document Number",
+            "Title",
+            "Document Date",
+            "Confidence",
+            "Source File",
+        ],
+    )
+
+    if not document_df.empty:
+
+        document_df["Confidence"] = (
+            document_df["Confidence"]
+            .fillna(0)
+            .apply(
+                lambda x: f"{x:.0%}"
+            )
+        )
+
+        st.dataframe(
+            document_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    conn.close()
+
+    st.divider()
+
+    # ========================================================
+    # PROCESSING STEPS
+    # ========================================================
+
+    st.subheader("Processing Steps")
+
+    flow_col1, flow_col2, flow_col3, flow_col4 = st.columns(4)
+
+    with flow_col1:
+        st.markdown("### 1")
+        st.markdown("**Extract**")
+        st.caption(
+            "Read files using the approved schema."
+        )
+
+    with flow_col2:
+        st.markdown("### 2")
+        st.markdown("**Enrich**")
+        st.caption(
+            "Add identifiers from folder paths, email metadata and other source evidence."
+        )
+
+    with flow_col3:
+        st.markdown("### 3")
+        st.markdown("**Match**")
+        st.caption(
+            "Link records to existing entities when there is enough evidence."
+        )
+
+    with flow_col4:
+        st.markdown("### 4")
+        st.markdown("**Store**")
+        st.caption(
+            "Save matched records and leave uncertain cases for review."
+        )
 
 # ============================================================
 # ASK THE KNOWLEDGE MODEL

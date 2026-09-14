@@ -1,220 +1,421 @@
 import re
 from pathlib import Path
 
+from SRC.config_loader import get_document_types
 from SRC.Ingestion.extraction.content_extractor import extract_content
 
 
-PRIMARY_DOCUMENT_PATTERNS = {
-    "invoice": [
-        re.compile(
-            r"Invoice\s*(?:Number|No\.?|#)\s*[:\-]?\s*(INV[- ]?\d+)",
-            re.IGNORECASE,
-        ),
-    ],
+# ============================================================
+# CONFIG HELPERS
+# ============================================================
 
-    "quotation": [
-        re.compile(
-            r"(?:Quotation|Quote)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(QUO[- ]?\d+)",
-            re.IGNORECASE,
-        ),
-    ],
+def get_document_type_config(document_type: str):
+    document_types = get_document_types()
 
-    "purchase_order": [
-        re.compile(
-            r"(?:Purchase\s*Order|PO)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(PO[- ]?\d+)",
-            re.IGNORECASE,
-        ),
-    ],
-
-    "delivery_note": [
-        re.compile(
-            r"(?:Delivery\s*Note|DN)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(DN[- ]?\d+)",
-            re.IGNORECASE,
-        ),
-    ],
-
-    "drawing": [
-        re.compile(
-            r"(?:Drawing|DWG)\s*(?:Number|No\.?|#)\s*[:\-]?\s*(DWG[- ]?\d+)",
-            re.IGNORECASE,
-        ),
-    ],
-}
+    return document_types.get(
+        document_type,
+        {},
+    )
 
 
-FALLBACK_PATTERNS = {
-    "invoice": re.compile(
-        r"\bINV[- ]?(\d+)\b",
-        re.IGNORECASE,
-    ),
+# ============================================================
+# DOCUMENT TYPE DETECTION
+# ============================================================
 
-    "quotation": re.compile(
-        r"\bQUO[- ]?(\d+)\b",
-        re.IGNORECASE,
-    ),
-
-    "purchase_order": re.compile(
-        r"\bPO[- ]?(\d+)\b",
-        re.IGNORECASE,
-    ),
-
-    "delivery_note": re.compile(
-        r"\bDN[- ]?(\d+)\b",
-        re.IGNORECASE,
-    ),
-
-    "drawing": re.compile(
-        r"\bDWG[- ]?(\d+)\b",
-        re.IGNORECASE,
-    ),
-}
-
-
-PREFIXES = {
-    "invoice": "INV",
-    "quotation": "QUO",
-    "purchase_order": "PO",
-    "delivery_note": "DN",
-    "drawing": "DWG",
-}
-
-
-def normalize_document_number(value: str) -> str:
+def detect_document_type_from_config(text: str):
     """
-    Normalize document numbers into forms such as:
-    INV-8190
-    QUO-5259
-    PO-3167
-    DN-6029
-    DWG-7686
+    Infer the document type using identifiers defined in
+    config/schema.yaml.
+
+    Conservative behaviour:
+    - one matching type -> return it
+    - multiple matching types -> ambiguous -> return None
+    - no match -> return None
     """
 
-    value = value.upper().replace(" ", "-")
+    if not text:
+        return None
+
+    document_types = get_document_types()
+
+    text_lower = text.lower()
+
+    matches = []
+
+    for document_type, config in document_types.items():
+
+        identifiers = config.get(
+            "identifiers",
+            [],
+        )
+
+        for identifier in identifiers:
+
+            if identifier.lower() in text_lower:
+
+                matches.append(
+                    document_type
+                )
+
+                break
+
+    matches = list(
+        dict.fromkeys(matches)
+    )
+
+    if len(matches) == 1:
+        return matches[0]
+
+    return None
+
+
+# ============================================================
+# DOCUMENT NUMBER NORMALISATION
+# ============================================================
+
+def normalize_document_number(
+    value: str,
+    document_type: str,
+):
+    """
+    Normalize a document number using the prefix configured
+    for that document type.
+    """
+
+    if not value:
+        return value
+
+    config = get_document_type_config(
+        document_type
+    )
+
+    primary_number = config.get(
+        "primary_number",
+        {},
+    )
+
+    prefix = primary_number.get(
+        "prefix"
+    )
+
+    value = (
+        value
+        .upper()
+        .replace(" ", "-")
+        .strip()
+    )
+
+    if not prefix:
+        return value
 
     match = re.search(
-        r"(INV|QUO|PO|DN|DWG)-?(\d+)",
+        rf"{re.escape(prefix)}-?(\d+)",
         value,
+        re.IGNORECASE,
     )
 
     if not match:
         return value
 
-    return f"{match.group(1)}-{match.group(2)}"
+    return (
+        f"{prefix.upper()}-"
+        f"{match.group(1)}"
+    )
 
+
+# ============================================================
+# PRIMARY DOCUMENT IDENTITY
+# ============================================================
 
 def extract_primary_document_identity(
     text: str,
     expected_type: str | None = None,
 ):
     """
-    Extract the document's own primary identity.
+    Extract the document's own primary identity using the
+    document rules defined in schema.yaml.
 
-    Important rule:
-    If filename evidence already suggests a document type,
-    only that document type is considered for content verification.
-
-    References to other document types must not be mistaken
-    for the identity of the current document.
+    Important:
+    if expected_type exists, only rules for that type are used.
+    This prevents references to other document types from being
+    mistaken for the identity of the current document.
     """
 
     if not text:
         return None
 
-    # ------------------------------------------------------------
-    # Case 1:
-    # Filename already gives us an expected document type.
-    #
-    # Only search for that same type's explicit labelled field.
-    # ------------------------------------------------------------
-    if expected_type in PRIMARY_DOCUMENT_PATTERNS:
+    document_types = get_document_types()
 
-        for pattern in PRIMARY_DOCUMENT_PATTERNS[expected_type]:
+    # ========================================================
+    # CASE 1
+    # Expected document type already exists.
+    # ========================================================
 
-            match = pattern.search(text)
+    if (
+        expected_type
+        and expected_type in document_types
+    ):
+
+        config = document_types[
+            expected_type
+        ]
+
+        primary_number = config.get(
+            "primary_number",
+            {},
+        )
+
+        primary_regex = (
+            primary_number.get(
+                "regex"
+            )
+        )
+
+        # ----------------------------------------------------
+        # Strong labelled primary field
+        # ----------------------------------------------------
+
+        if primary_regex:
+
+            pattern = re.compile(
+                primary_regex,
+                re.IGNORECASE,
+            )
+
+            match = pattern.search(
+                text
+            )
 
             if match:
+
                 return {
-                    "document_type": expected_type,
-                    "document_number": normalize_document_number(
-                        match.group(1)
-                    ),
-                    "confidence": 0.99,
-                    "method": "labelled_primary_field",
+                    "document_type":
+                        expected_type,
+
+                    "document_number":
+                        normalize_document_number(
+                            match.group(1),
+                            expected_type,
+                        ),
+
+                    "confidence":
+                        0.99,
+
+                    "method":
+                        "labelled_primary_field",
                 }
 
-        # --------------------------------------------------------
-        # No labelled primary field found.
-        #
-        # We may still look for an unlabelled number of the SAME
-        # document type, but this is weak evidence only.
-        # --------------------------------------------------------
-        fallback_pattern = FALLBACK_PATTERNS.get(expected_type)
+        # ----------------------------------------------------
+        # Same-type fallback
+        # ----------------------------------------------------
 
-        if fallback_pattern:
-            match = fallback_pattern.search(text)
+        fallback_regex = config.get(
+            "fallback_regex"
+        )
+
+        if fallback_regex:
+
+            fallback_pattern = re.compile(
+                fallback_regex,
+                re.IGNORECASE,
+            )
+
+            match = fallback_pattern.search(
+                text
+            )
 
             if match:
+
+                prefix = (
+                    primary_number.get(
+                        "prefix"
+                    )
+                )
+
+                raw_number = (
+                    match.group(1)
+                )
+
+                if prefix:
+
+                    document_number = (
+                        f"{prefix.upper()}-"
+                        f"{raw_number}"
+                    )
+
+                else:
+
+                    document_number = (
+                        raw_number
+                    )
+
                 return {
-                    "document_type": expected_type,
-                    "document_number": (
-                        f"{PREFIXES[expected_type]}-{match.group(1)}"
-                    ),
-                    "confidence": 0.80,
-                    "method": "same_type_fallback",
+                    "document_type":
+                        expected_type,
+
+                    "document_number":
+                        document_number,
+
+                    "confidence":
+                        0.80,
+
+                    "method":
+                        "same_type_fallback",
                 }
 
         return None
 
-    # ------------------------------------------------------------
-    # Case 2:
-    # No expected type exists.
+    # ========================================================
+    # CASE 2
+    # No expected type.
     #
-    # This may be useful later for files such as generic PDFs,
-    # but we remain conservative.
-    # ------------------------------------------------------------
-    for document_type, patterns in PRIMARY_DOCUMENT_PATTERNS.items():
+    # Search across configured document types.
+    # ========================================================
 
-        for pattern in patterns:
+    matches = []
 
-            match = pattern.search(text)
+    for (
+        document_type,
+        config,
+    ) in document_types.items():
 
-            if match:
-                return {
-                    "document_type": document_type,
-                    "document_number": normalize_document_number(
-                        match.group(1)
-                    ),
-                    "confidence": 0.95,
-                    "method": "labelled_primary_field_without_prior",
+        primary_number = config.get(
+            "primary_number",
+            {},
+        )
+
+        primary_regex = (
+            primary_number.get(
+                "regex"
+            )
+        )
+
+        if not primary_regex:
+            continue
+
+        pattern = re.compile(
+            primary_regex,
+            re.IGNORECASE,
+        )
+
+        match = pattern.search(
+            text
+        )
+
+        if match:
+
+            matches.append(
+                {
+                    "document_type":
+                        document_type,
+
+                    "document_number":
+                        normalize_document_number(
+                            match.group(1),
+                            document_type,
+                        ),
+
+                    "confidence":
+                        0.95,
+
+                    "method":
+                        "labelled_primary_field_without_prior",
                 }
+            )
+
+    # Conservative:
+    # only return identity if exactly one type matched.
+    if len(matches) == 1:
+        return matches[0]
 
     return None
 
+
+# ============================================================
+# DOCUMENT PARSER
+# ============================================================
 
 def parse_document(
     file_path: Path,
     expected_type: str | None = None,
 ):
     """
-    Extract content and infer the logical document identity.
+    Extract document content and infer logical identity.
+
+    Evidence order:
+
+    1. Existing prior evidence, such as filename identity
+    2. Config-based document classification
+    3. Config-driven labelled identity extraction
+    4. Config-driven same-type fallback
     """
 
-    content = extract_content(file_path)
+    content = extract_content(
+        file_path
+    )
 
-    text = content.get("text", "")
+    text = content.get(
+        "text",
+        "",
+    )
 
-    identity = extract_primary_document_identity(
-        text,
-        expected_type=expected_type,
+    # --------------------------------------------------------
+    # Generic schema-driven classification
+    # --------------------------------------------------------
+
+    config_detected_type = (
+        detect_document_type_from_config(
+            text
+        )
+    )
+
+    # Existing deterministic evidence remains stronger
+    # than generic classification.
+    effective_type = (
+        expected_type
+        or config_detected_type
+    )
+
+    # --------------------------------------------------------
+    # Config-driven identity extraction
+    # --------------------------------------------------------
+
+    identity = (
+        extract_primary_document_identity(
+            text,
+            expected_type=effective_type,
+        )
     )
 
     return {
-        "file_path": str(file_path),
-        "filename": file_path.name,
-        "content": content,
-        "identity": identity,
+        "file_path":
+            str(file_path),
+
+        "filename":
+            file_path.name,
+
+        "content":
+            content,
+
+        "expected_type":
+            expected_type,
+
+        "config_detected_type":
+            config_detected_type,
+
+        "effective_type":
+            effective_type,
+
+        "identity":
+            identity,
     }
 
 
+# ============================================================
+# LOCAL TEST
+# ============================================================
+
 if __name__ == "__main__":
-    print("Document parser ready.")
+    print(
+        "Config-driven document parser ready."
+    )

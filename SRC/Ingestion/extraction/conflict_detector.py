@@ -220,11 +220,3 @@ def resolve_filename_content_conflict(file_path: Path):
         f"\nSource file relinked from "
         f"{filename_number} to {content_number}"
     )
-
-
-if __name__ == "__main__":
-    test_path = Path(
-        r"C:\Users\Administrator\Downloads\takehome\Customers\Falcon Aerospace Components Ltd\JOB-2026-0026 Control Panel Replacement\Invoices\INV-8189_v2.pdf"
-    )
-
-    resolve_filename_content_conflict(test_path)
